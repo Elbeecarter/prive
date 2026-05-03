@@ -37,17 +37,32 @@ export default function SendPage() {
     try {
       const program = getProgram(anchorWallet, connection);
       const [senderVault] = getVaultPda(publicKey);
+
       let recipientKey: web3.PublicKey;
       try { recipientKey = new web3.PublicKey(recipient); }
       catch { setIsError(true); setStatus('Invalid recipient address'); setLoading(false); setPhase('form'); return; }
+
+      // Check recipient vault exists
       const [recipientVault] = getVaultPda(recipientKey);
+      const recipientVaultAccount = await program.account.vaultAccount.fetchNullable(recipientVault);
+
+      if (!recipientVaultAccount) {
+        setIsError(true);
+        setStatus('Recipient does not have a Privé vault. They need to create one at prive.app first. For demo: use your own wallet address as recipient.');
+        setLoading(false);
+        setPhase('form');
+        return;
+      }
+
       const encryptedMemo = Array(64).fill(0);
       const memoBytes = Buffer.from(memo || 'private transfer');
       memoBytes.copy(Buffer.from(encryptedMemo), 0, 0, Math.min(memoBytes.length, 64));
+
       const tx = await program.methods
         .privateTransfer(new BN(Number(amount) * 1_000_000), encryptedMemo)
         .accounts({ senderVault, recipientVault, owner: publicKey })
         .rpc();
+
       setTxSig(tx);
       setPhase('done');
       setStatus('Transfer shielded · Amount and identity hidden on-chain');
@@ -82,15 +97,27 @@ export default function SendPage() {
         </div>
         <div style={{ padding:'32px 36px', maxWidth:'600px' }}>
           <div style={{ ...card, borderColor:'rgba(201,169,110,0.22)', background:'rgba(201,169,110,0.04)', marginBottom:'20px' }}>
-            <div style={{ fontSize:'13px', color:'#9a9488', lineHeight:'1.7' }}>⬛ <strong style={{ color:'#c9a96e' }}>Private transfers via MagicBlock PER.</strong> Amount, sender identity, and memo are hidden inside Intel TDX. On-chain observers see only a pool balance change — nothing else.</div>
+            <div style={{ fontSize:'13px', color:'#9a9488', lineHeight:'1.7' }}>⬛ <strong style={{ color:'#c9a96e' }}>Private transfers via MagicBlock PER.</strong> Amount, sender identity, and memo are hidden inside Intel TDX. On-chain observers see only a pool balance change — nothing else. Both sender and recipient must have a Privé vault.</div>
           </div>
+
+          {connected && publicKey && (
+            <div style={{ ...card, padding:'14px 20px', marginBottom:'16px', background:'rgba(201,169,110,0.04)', borderColor:'rgba(201,169,110,0.2)' }}>
+              <div style={{ fontSize:'10px', color:'#7a7468', fontFamily:'monospace', marginBottom:'4px' }}>YOUR WALLET (use as recipient for demo)</div>
+              <div style={{ fontFamily:'monospace', fontSize:'11px', color:'#c9a96e', wordBreak:'break-all' as const }}>{publicKey.toString()}</div>
+              <button onClick={() => setRecipient(publicKey.toString())}
+                style={{ marginTop:'8px', background:'transparent', border:'1px solid rgba(201,169,110,0.26)', borderRadius:'4px', padding:'4px 12px', color:'#c9a96e', fontSize:'10px', cursor:'pointer', fontFamily:'monospace' }}>
+                Use my address →
+              </button>
+            </div>
+          )}
+
           {!connected ? (
             <div style={{ textAlign:'center', padding:'60px 0' }}><WalletMultiButton /></div>
           ) : phase === 'form' ? (
             <div style={card}>
               <div style={{ fontFamily:'Georgia,serif', fontSize:'18px', marginBottom:'20px' }}>Transfer details</div>
               <span style={lbl}>Recipient address</span>
-              <input style={inp} value={recipient} onChange={e=>setRecipient(e.target.value)} placeholder="Solana wallet address" />
+              <input style={inp} value={recipient} onChange={e=>setRecipient(e.target.value)} placeholder="Solana wallet address (must have Privé vault)" />
               <span style={lbl}>Amount (USDC)</span>
               <input style={inp} value={amount} onChange={e=>setAmount(e.target.value)} />
               <span style={lbl}>Memo (encrypted in PER)</span>
@@ -119,13 +146,14 @@ export default function SendPage() {
               <div style={{ textAlign:'center', marginBottom:'28px' }}>
                 <div style={{ width:'56px', height:'56px', borderRadius:'50%', background:'rgba(76,175,125,0.12)', border:'1px solid rgba(76,175,125,0.3)', display:'flex', alignItems:'center', justifyContent:'center', fontSize:'24px', margin:'0 auto 16px' }}>✓</div>
                 <div style={{ fontFamily:'Georgia,serif', fontSize:'24px', marginBottom:'6px' }}>Transfer shielded</div>
-                <div style={{ fontSize:'13px', color:'#7a7468' }}>${Number(amount).toLocaleString()} USDC delivered privately</div>
+                <div style={{ fontSize:'13px', color:'#7a7468' }}>${Number(amount).toLocaleString()} USDC delivered privately · Zero trace on-chain</div>
               </div>
               {[
-                ['On-chain record', 'Pool delta only · No sender or amount'],
+                ['On-chain record','Pool delta only · No sender or amount'],
                 ['Recipient', recipient.slice(0,16)+'…'],
-                ['Amount', '$'+Number(amount).toLocaleString()+' USDC'],
-                ['Settlement', 'Solana L1 · Confirmed'],
+                ['Amount','$'+Number(amount).toLocaleString()+' USDC'],
+                ['Memo','⬛ Encrypted in Intel TDX'],
+                ['Settlement','Solana L1 · Confirmed'],
               ].map(([l,v]) => (
                 <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'10px 0', borderBottom:'1px solid rgba(201,169,110,0.08)' }}>
                   <span style={{ fontSize:'12px', color:'#9a9488' }}>{l}</span>

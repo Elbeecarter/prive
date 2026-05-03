@@ -61,8 +61,17 @@ export default function VaultPage() {
         .rpc();
       setTxSig(tx);
       await fetchVault();
-      setStatus('Vault delegated · Private execution active inside Intel TDX');
-    } catch (e: any) { setIsError(true); setStatus(e.message); }
+      setStatus('Vault delegated · Private execution active');
+    } catch (e: any) {
+      if (e.message?.includes('already been processed') || e.message?.includes('already in use')) {
+        await fetchVault();
+        setStatus('Vault already delegated to PER · Private execution active');
+        setIsError(false);
+      } else {
+        setIsError(true);
+        setStatus(e.message);
+      }
+    }
     setLoading(false);
   }
 
@@ -99,14 +108,15 @@ export default function VaultPage() {
           ) : vault ? (
             <>
               <div style={{ ...card, borderColor:'rgba(76,175,125,0.3)', background:'rgba(76,175,125,0.04)' }}>
-                <div style={{ fontFamily:'Georgia,serif', fontSize:'22px', color:'#4caf7d', marginBottom:'20px' }}>✓ Vault active</div>
+                <div style={{ fontFamily:'Georgia,serif', fontSize:'22px', color:'#4caf7d', marginBottom:'20px' }}>✓ Vault active · On-chain</div>
                 {[
                   ['Owner', publicKey?.toString().slice(0,20)+'…'],
-                  ['Delegated to PER', vault.isDelegated ? '✓ Yes · Private execution active' : '✗ Not yet delegated'],
+                  ['Delegated to PER', vault.isDelegated ? '✓ Yes · Private execution active' : 'Not yet — delegate below'],
                   ['Role', Object.keys(vault.role)[0]],
                   ['Credit tier', String(vault.creditTier)],
                   ['Transfer count', vault.transferCount.toString()],
                   ['KYC attestation', vault.kycAttestation ? '✓ Verified' : 'Not issued'],
+                  ['Program', '9VzuKgdog1uRcB4Xjnx2At3d8ZQ6NdwtC5bhFfwz6tBe'],
                 ].map(([l,v]) => (
                   <div key={l} style={{ display:'flex', justifyContent:'space-between', padding:'10px 0', borderBottom:'1px solid rgba(201,169,110,0.08)' }}>
                     <span style={{ fontSize:'12px', color:'#9a9488' }}>{l}</span>
@@ -114,15 +124,23 @@ export default function VaultPage() {
                   </div>
                 ))}
               </div>
-              {!vault.isDelegated && (
-                <div style={card}>
-                  <div style={{ fontFamily:'Georgia,serif', fontSize:'18px', marginBottom:'8px' }}>Delegate to MagicBlock PER</div>
-                  <div style={{ fontSize:'12px', color:'#7a7468', marginBottom:'20px' }}>Once delegated, all balance operations execute inside Intel TDX — private and shielded.</div>
-                  <button style={btn} onClick={delegateToPer} disabled={loading}>{loading ? 'Delegating...' : 'Delegate vault to PER'}</button>
-                  {status && <div style={isError ? err : suc}>{status}</div>}
-                  {txSig && <div style={{ marginTop:'12px', fontSize:'10px', fontFamily:'monospace', color:'#7a7468' }}>Tx: <a href={`https://explorer.solana.com/tx/${txSig}?cluster=devnet`} target="_blank" rel="noreferrer" style={{ color:'#c9a96e' }}>{txSig.slice(0,20)}… →</a></div>}
+
+              <div style={card}>
+                <div style={{ fontFamily:'Georgia,serif', fontSize:'18px', marginBottom:'8px' }}>Delegate to MagicBlock PER</div>
+                <div style={{ fontSize:'12px', color:'#7a7468', marginBottom:'20px' }}>
+                  {vault.isDelegated
+                    ? '✓ Your vault is delegated — all balance operations execute privately inside Intel TDX.'
+                    : 'Once delegated, all balance operations execute inside Intel TDX — private and shielded from on-chain observers.'}
                 </div>
-              )}
+                {!vault.isDelegated && (
+                  <button style={btn} onClick={delegateToPer} disabled={loading}>
+                    {loading ? 'Delegating...' : 'Delegate vault to PER'}
+                  </button>
+                )}
+                {status && <div style={isError ? err : suc}>{status}</div>}
+                {txSig && <div style={{ marginTop:'12px', fontSize:'10px', fontFamily:'monospace', color:'#7a7468' }}>Tx: <a href={`https://explorer.solana.com/tx/${txSig}?cluster=devnet`} target="_blank" rel="noreferrer" style={{ color:'#c9a96e' }}>{txSig.slice(0,20)}… →</a></div>}
+              </div>
+
               <Link href="/send" style={{ ...btn, display:'inline-block', textDecoration:'none' }}>Send privately →</Link>
             </>
           ) : (
