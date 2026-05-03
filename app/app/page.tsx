@@ -5,6 +5,7 @@ import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useState, useEffect } from 'react';
 import { getProgram, getVaultPda } from '../lib/program';
 import { web3 } from '@coral-xyz/anchor';
+import Link from 'next/link';
 
 export default function Home() {
   const { connected, publicKey } = useWallet();
@@ -23,6 +24,11 @@ export default function Home() {
     { section: 'Enterprise', items: ['Treasury', 'Compliance', 'RWA rails'] },
   ];
 
+  const moduleLinks: Record<string, string> = {
+    'Auctions': '/auctions', 'Lending': '/lending', 'Dark pool': '/darkpool',
+    'x402 gateway': '/x402', 'A2A channels': '/a2a', 'Treasury': '/treasury',
+  };
+
   useEffect(() => {
     if (!publicKey || !anchorWallet) return;
     checkVault();
@@ -36,9 +42,7 @@ export default function Home() {
       const vault = await program.account.vaultAccount.fetchNullable(vaultPda);
       setVaultExists(!!vault);
       if (vault) setStatus('Vault active · PER ready');
-    } catch {
-      setVaultExists(false);
-    }
+    } catch { setVaultExists(false); }
   }
 
   async function initializeVault() {
@@ -50,18 +54,12 @@ export default function Home() {
       const [vaultPda] = getVaultPda(publicKey);
       const tx = await program.methods
         .initializeVault({ user: {} })
-        .accounts({
-          vault: vaultPda,
-          owner: publicKey,
-          systemProgram: web3.SystemProgram.programId,
-        })
+        .accounts({ vault: vaultPda, owner: publicKey, systemProgram: web3.SystemProgram.programId })
         .rpc();
       setTxSig(tx);
       setVaultExists(true);
       setStatus('Vault created successfully');
-    } catch (e: any) {
-      setStatus('Error: ' + e.message);
-    }
+    } catch (e: any) { setStatus('Error: ' + e.message); }
     setLoading(false);
   }
 
@@ -69,19 +67,27 @@ export default function Home() {
     <div style={{ display: 'flex', height: '100vh', background: '#0e0e0e', color: '#f5f0e8', fontFamily: 'system-ui, sans-serif' }}>
       <aside style={{ width: '220px', borderRight: '1px solid rgba(201,169,110,0.12)', display: 'flex', flexDirection: 'column', padding: '32px 0', background: 'rgba(14,14,14,0.95)' }}>
         <div style={{ padding: '0 28px 32px', borderBottom: '1px solid rgba(201,169,110,0.12)' }}>
-          <div style={{ fontFamily: 'Georgia, serif', fontSize: '28px', color: '#c9a96e', letterSpacing: '0.08em' }}>Privé</div>
-          <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: '#7a7468', marginTop: '2px', textTransform: 'uppercase' }}>Private Finance · Solana</div>
+          <div style={{ fontFamily: 'Georgia, serif', fontSize: '28px', color: '#c9a96e' }}>Privé</div>
+          <div style={{ fontSize: '9px', letterSpacing: '0.2em', color: '#7a7468', textTransform: 'uppercase' }}>Private Finance · Solana</div>
         </div>
         <nav style={{ padding: '24px 0', flex: 1 }}>
           {navItems.map(({ section, items }) => (
             <div key={section} style={{ marginBottom: '28px' }}>
               <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: '#7a7468', textTransform: 'uppercase', padding: '0 28px 10px' }}>{section}</div>
-              {items.map(item => (
-                <div key={item} onClick={() => setActiveNav(item)} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 28px', cursor: 'pointer', color: activeNav === item ? '#c9a96e' : '#7a7468', borderLeft: activeNav === item ? '2px solid #c9a96e' : '2px solid transparent', background: activeNav === item ? 'rgba(201,169,110,0.1)' : 'transparent', fontSize: '13px' }}>
-                  <div style={{ width: '6px', height: '6px', borderRadius: '50%', border: '1px solid currentColor', background: activeNav === item ? '#c9a96e' : 'transparent' }}></div>
-                  {item}
-                </div>
-              ))}
+              {items.map(item => {
+                const href = moduleLinks[item];
+                const content = (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 28px', cursor: 'pointer', color: activeNav === item ? '#c9a96e' : '#7a7468', borderLeft: activeNav === item ? '2px solid #c9a96e' : '2px solid transparent', background: activeNav === item ? 'rgba(201,169,110,0.1)' : 'transparent', fontSize: '13px', textDecoration: 'none' }}>
+                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', border: '1px solid currentColor', background: activeNav === item ? '#c9a96e' : 'transparent' }}></div>
+                    {item}
+                  </div>
+                );
+                return href ? (
+                  <Link key={item} href={href} style={{ textDecoration: 'none' }} onClick={() => setActiveNav(item)}>{content}</Link>
+                ) : (
+                  <div key={item} onClick={() => setActiveNav(item)}>{content}</div>
+                );
+              })}
             </div>
           ))}
         </nav>
@@ -129,40 +135,38 @@ export default function Home() {
                     </div>
                   ))}
                 </div>
-
                 {!vaultExists && (
                   <button onClick={initializeVault} disabled={loading}
-                    style={{ marginTop: '24px', background: '#c9a96e', border: 'none', borderRadius: '6px', padding: '12px 28px', color: '#0e0e0e', fontSize: '14px', cursor: loading ? 'wait' : 'pointer', fontFamily: 'Georgia, serif', letterSpacing: '0.04em' }}>
+                    style={{ marginTop: '24px', background: '#c9a96e', border: 'none', borderRadius: '6px', padding: '12px 28px', color: '#0e0e0e', fontSize: '14px', cursor: loading ? 'wait' : 'pointer', fontFamily: 'Georgia, serif' }}>
                     {loading ? 'Creating vault...' : 'Initialize Privé vault'}
                   </button>
                 )}
-
                 {txSig && (
                   <div style={{ marginTop: '16px', padding: '12px 16px', background: 'rgba(76,175,125,0.08)', border: '1px solid rgba(76,175,125,0.2)', borderRadius: '6px', fontFamily: 'monospace', fontSize: '10px', color: '#4caf7d' }}>
-                    ✓ Vault created on-chain · tx: {txSig.slice(0,20)}...
-                    <br />
-                    <a href={`https://explorer.solana.com/tx/${txSig}?cluster=devnet`} target="_blank" rel="noreferrer" style={{ color: '#c9a96e' }}>View on Solana Explorer →</a>
+                    ✓ Vault created · <a href={`https://explorer.solana.com/tx/${txSig}?cluster=devnet`} target="_blank" rel="noreferrer" style={{ color: '#c9a96e' }}>View on Solana Explorer →</a>
                   </div>
                 )}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px' }}>
                 {[
-                  ['⚡', 'Sealed auctions', 'Bid without revealing price. TEE-verified.'],
-                  ['◈', 'Private lending', 'Borrow at confidential rates.'],
-                  ['◐', 'Dark pool', 'Zero price impact swaps.'],
-                  ['⬡', 'x402 gateway', 'Private AI agent payments.'],
-                  ['⟳', 'A2A channels', 'Agent-to-agent settlements.'],
-                  ['▦', 'Treasury', 'Shielded corporate vault.'],
-                ].map(([icon, name, desc]) => (
-                  <div key={name} style={{ background: 'rgba(255,255,255,0.028)', border: '1px solid rgba(201,169,110,0.11)', borderRadius: '10px', padding: '20px 22px', cursor: 'pointer' }}
-                    onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(201,169,110,0.4)')}
-                    onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(201,169,110,0.11)')}>
-                    <div style={{ fontSize: '20px', marginBottom: '12px' }}>{icon}</div>
-                    <div style={{ fontFamily: 'Georgia, serif', fontSize: '15px', color: '#f5f0e8', marginBottom: '6px' }}>{name}</div>
-                    <div style={{ fontSize: '11px', color: '#7a7468', lineHeight: '1.5' }}>{desc}</div>
-                    <div style={{ fontSize: '9px', color: '#4caf7d', marginTop: '12px', fontFamily: 'monospace' }}>● Live on devnet</div>
-                  </div>
+                  ['⚡', 'Sealed auctions', 'Bid without revealing price. TEE-verified Vickrey mechanism.', '/auctions'],
+                  ['◈', 'Private lending', 'Borrow at confidential rates. Terms sealed in Intel TDX.', '/lending'],
+                  ['◐', 'Dark pool', 'Zero price impact swaps. No MEV, no front-running.', '/darkpool'],
+                  ['⬡', 'x402 gateway', 'Private AI agent payments. Per-request micropayments.', '/x402'],
+                  ['⟳', 'A2A channels', 'Agent-to-agent settlements inside PER. Single L1 close.', '/a2a'],
+                  ['▦', 'Treasury', 'Corporate multi-sig vault. Shielded payroll and budgets.', '/treasury'],
+                ].map(([icon, name, desc, href]) => (
+                  <Link key={name} href={href} style={{ textDecoration: 'none' }}>
+                    <div style={{ background: 'rgba(255,255,255,0.028)', border: '1px solid rgba(201,169,110,0.11)', borderRadius: '10px', padding: '20px 22px', cursor: 'pointer', height: '100%' }}
+                      onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(201,169,110,0.4)')}
+                      onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(201,169,110,0.11)')}>
+                      <div style={{ fontSize: '20px', marginBottom: '12px' }}>{icon}</div>
+                      <div style={{ fontFamily: 'Georgia, serif', fontSize: '15px', color: '#f5f0e8', marginBottom: '6px' }}>{name}</div>
+                      <div style={{ fontSize: '11px', color: '#7a7468', lineHeight: '1.5', marginBottom: '12px' }}>{desc}</div>
+                      <div style={{ fontSize: '9px', color: '#c9a96e', fontFamily: 'monospace' }}>Open module →</div>
+                    </div>
+                  </Link>
                 ))}
               </div>
             </>
