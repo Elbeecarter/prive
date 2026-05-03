@@ -11,11 +11,14 @@ export default function Home() {
   const { connected, publicKey } = useWallet();
   const { connection } = useConnection();
   const anchorWallet = useAnchorWallet();
+  const [mounted, setMounted] = useState(false);
   const [activeNav, setActiveNav] = useState('Overview');
   const [vaultExists, setVaultExists] = useState(false);
   const [loading, setLoading] = useState(false);
   const [txSig, setTxSig] = useState('');
   const [status, setStatus] = useState('');
+
+  useEffect(() => { setMounted(true); }, []);
 
   const navItems = [
     { section: 'Accounts', items: ['Overview', 'Vault', 'Send privately'] },
@@ -63,6 +66,8 @@ export default function Home() {
     setLoading(false);
   }
 
+  if (!mounted) return null;
+
   return (
     <div style={{ display: 'flex', height: '100vh', background: '#0e0e0e', color: '#f5f0e8', fontFamily: 'system-ui, sans-serif' }}>
       <aside style={{ width: '220px', borderRight: '1px solid rgba(201,169,110,0.12)', display: 'flex', flexDirection: 'column', padding: '32px 0', background: 'rgba(14,14,14,0.95)' }}>
@@ -76,16 +81,12 @@ export default function Home() {
               <div style={{ fontSize: '9px', letterSpacing: '0.18em', color: '#7a7468', textTransform: 'uppercase', padding: '0 28px 10px' }}>{section}</div>
               {items.map(item => {
                 const href = moduleLinks[item];
-                const content = (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 28px', cursor: 'pointer', color: activeNav === item ? '#c9a96e' : '#7a7468', borderLeft: activeNav === item ? '2px solid #c9a96e' : '2px solid transparent', background: activeNav === item ? 'rgba(201,169,110,0.1)' : 'transparent', fontSize: '13px', textDecoration: 'none' }}>
-                    <div style={{ width: '6px', height: '6px', borderRadius: '50%', border: '1px solid currentColor', background: activeNav === item ? '#c9a96e' : 'transparent' }}></div>
-                    {item}
-                  </div>
-                );
+                const style = { display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 28px', cursor: 'pointer', color: activeNav === item ? '#c9a96e' : '#7a7468', borderLeft: activeNav === item ? '2px solid #c9a96e' : '2px solid transparent', background: activeNav === item ? 'rgba(201,169,110,0.1)' : 'transparent', fontSize: '13px', textDecoration: 'none' as const };
+                const inner = (<><div style={{ width: '6px', height: '6px', borderRadius: '50%', border: '1px solid currentColor', background: activeNav === item ? '#c9a96e' : 'transparent' }}></div>{item}</>);
                 return href ? (
-                  <Link key={item} href={href} style={{ textDecoration: 'none' }} onClick={() => setActiveNav(item)}>{content}</Link>
+                  <Link key={item} href={href} style={style} onClick={() => setActiveNav(item)}>{inner}</Link>
                 ) : (
-                  <div key={item} onClick={() => setActiveNav(item)}>{content}</div>
+                  <div key={item} style={style} onClick={() => setActiveNav(item)}>{inner}</div>
                 );
               })}
             </div>
@@ -158,7 +159,7 @@ export default function Home() {
                   ['▦', 'Treasury', 'Corporate multi-sig vault. Shielded payroll and budgets.', '/treasury'],
                 ].map(([icon, name, desc, href]) => (
                   <Link key={name} href={href} style={{ textDecoration: 'none' }}>
-                    <div style={{ background: 'rgba(255,255,255,0.028)', border: '1px solid rgba(201,169,110,0.11)', borderRadius: '10px', padding: '20px 22px', cursor: 'pointer', height: '100%' }}
+                    <div style={{ background: 'rgba(255,255,255,0.028)', border: '1px solid rgba(201,169,110,0.11)', borderRadius: '10px', padding: '20px 22px', cursor: 'pointer' }}
                       onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(201,169,110,0.4)')}
                       onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(201,169,110,0.11)')}>
                       <div style={{ fontSize: '20px', marginBottom: '12px' }}>{icon}</div>
