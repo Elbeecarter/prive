@@ -63,7 +63,7 @@ export default function SendPage() {
       const [senderVault] = getVaultPda(publicKey);
       const [recipientVault] = getVaultPda(recipientKey);
 
-      const recipientVaultAccount = await program.account.vaultAccount.fetchNullable(recipientVault);
+      const recipientVaultAccount = await (program.account as any).vaultAccount.fetchNullable(recipientVault);
       if (!recipientVaultAccount) {
         // Simulate for demo purposes
         await new Promise(r => setTimeout(r, 2000));

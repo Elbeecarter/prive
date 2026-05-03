@@ -25,7 +25,7 @@ export default function VaultPage() {
     try {
       const program = getProgram(anchorWallet, connection);
       const [vaultPda] = getVaultPda(publicKey);
-      const v = await program.account.vaultAccount.fetchNullable(vaultPda);
+      const v = await (program.account as any).vaultAccount.fetchNullable(vaultPda);
       setVault(v);
     } catch { setVault(null); }
   }

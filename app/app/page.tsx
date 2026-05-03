@@ -33,7 +33,7 @@ export default function Home() {
     try {
       const program = getProgram(anchorWallet, connection);
       const [vaultPda] = getVaultPda(publicKey);
-      const vault = await program.account.vaultAccount.fetchNullable(vaultPda);
+      const vault = await (program.account as any).vaultAccount.fetchNullable(vaultPda);
       setVaultExists(!!vault);
       if (vault) setStatus('Vault active · PER ready');
     } catch { setVaultExists(false); }

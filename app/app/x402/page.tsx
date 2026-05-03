@@ -41,7 +41,7 @@ export default function X402Page() {
       const [agentPda] = web3.PublicKey.findProgramAddressSync(agentSeeds, program.programId);
 
       // Check if agent already exists
-      const existing = await program.account.agentAccount.fetchNullable(agentPda);
+      const existing = await (program.account as any).agentAccount.fetchNullable(agentPda);
       if (existing) {
         setPhase('pay');
         setStatus('Agent already registered · Ready for x402 payments');
