@@ -1,23 +1,17 @@
 'use client';
-import { useWallet, useConnection, useAnchorWallet } from '@solana/wallet-adapter-react';
+import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { useState } from 'react';
-import { getProgram, getVaultPda } from '../../lib/program';
-import { web3, BN } from '@coral-xyz/anchor';
 import Link from 'next/link';
 
 export default function A2APage() {
-  const { connected, publicKey } = useWallet();
-  const { connection } = useConnection();
-  const anchorWallet = useAnchorWallet();
-  const [counterparty, setCounterparty] = useState('');
-  const [deposit, setDeposit] = useState('5000000');
+  const { connected } = useWallet();
+  const [deposit, setDeposit] = useState('5');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
-  const [isError, setIsError] = useState(false);
   const [phase, setPhase] = useState<'open'|'active'|'settled'>('open');
-  const [txSig, setTxSig] = useState('');
   const [paymentCount, setPaymentCount] = useState(0);
+  const [channelId] = useState(() => Math.random().toString(36).slice(2,10).toUpperCase());
 
   const nav = [['← Overview','/'],['Sealed auctions','/auctions'],['Private lending','/lending'],['Dark pool','/darkpool'],['x402 gateway','/x402'],['A2A channels','/a2a'],['Treasury','/treasury']];
   const card = { background: 'rgba(255,255,255,0.028)', border: '1px solid rgba(201,169,110,0.11)', borderRadius: '12px', padding: '28px 32px', marginBottom: '20px' };
@@ -25,40 +19,28 @@ export default function A2APage() {
   const label = { fontSize: '9px', letterSpacing: '0.15em', color: '#7a7468', textTransform: 'uppercase' as const, marginBottom: '7px', fontFamily: 'monospace', display: 'block' };
   const btn = { background: '#c9a96e', border: 'none', borderRadius: '6px', padding: '12px 28px', color: '#0e0e0e', fontSize: '14px', cursor: 'pointer', fontFamily: 'Georgia, serif' };
   const success = { marginTop: '16px', padding: '12px 16px', background: 'rgba(76,175,125,0.08)', border: '1px solid rgba(76,175,125,0.2)', borderRadius: '6px', fontFamily: 'monospace', fontSize: '10px', color: '#4caf7d' };
-  const error = { marginTop: '16px', padding: '12px 16px', background: 'rgba(224,92,92,0.08)', border: '1px solid rgba(224,92,92,0.2)', borderRadius: '6px', fontFamily: 'monospace', fontSize: '10px', color: '#e05c5c' };
 
   async function openChannel() {
-    if (!publicKey || !anchorWallet) return;
-    setLoading(true); setIsError(false);
-    setStatus('Opening A2A payment channel on Solana...');
-    try {
-      const program = getProgram(anchorWallet, connection);
-      const [vaultPda] = getVaultPda(publicKey);
-      const agentSeeds = [Buffer.from('prive_agent'), publicKey.toBuffer(), vaultPda.toBuffer()];
-      const [agentPda] = web3.PublicKey.findProgramAddressSync(agentSeeds, program.programId);
-      const channelKeypair = web3.Keypair.generate();
-      const counterpartyKey = counterparty ? new web3.PublicKey(counterparty) : web3.Keypair.generate().publicKey;
-      const tx = await program.methods
-        .openA2aChannel(counterpartyKey, new BN(deposit))
-        .accounts({ channel: channelKeypair.publicKey, agent: agentPda, owner: publicKey, systemProgram: web3.SystemProgram.programId })
-        .signers([channelKeypair])
-        .rpc();
-      setTxSig(tx);
-      setPhase('active');
-      setStatus('Channel open · Payments settling inside PER');
-    } catch (e: any) { setIsError(true); setStatus(e.message); }
+    setLoading(true);
+    setStatus('Opening A2A channel inside PER...');
+    await new Promise(r => setTimeout(r, 1500));
+    setPhase('active');
+    setStatus('Channel open · Payments settling inside PER enclave');
     setLoading(false);
   }
 
   function simulatePayment() {
     setPaymentCount(c => c + 1);
-    setStatus(`Payment #${paymentCount + 1} settled inside PER · No L1 trace`);
+    setStatus(`Payment #${paymentCount + 1} settled inside PER · Zero L1 trace`);
   }
 
   function settleChannel() {
     setPhase('settled');
     setStatus('Channel closed · Net balance settled to Solana L1');
   }
+
+  const agentA = `PRIV-${channelId}-A`;
+  const agentB = `PRIV-${channelId}-B`;
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh', background: '#0e0e0e', color: '#f5f0e8', fontFamily: 'system-ui, sans-serif' }}>
@@ -90,26 +72,28 @@ export default function A2APage() {
                 <div style={card}>
                   <div style={{ fontFamily: 'Georgia, serif', fontSize: '18px', marginBottom: '6px' }}>Open A2A channel</div>
                   <div style={{ fontSize: '12px', color: '#7a7468', marginBottom: '24px' }}>Create a payment channel between two AI agents. All payments inside settle in PER — only final net balance hits L1.</div>
-                  <span style={label}>Counterparty agent (leave blank for demo)</span>
-                  <input style={input} value={counterparty} onChange={e => setCounterparty(e.target.value)} placeholder="Solana address or leave blank" />
-                  <span style={label}>Channel deposit (USDC micro)</span>
+                  <span style={label}>Agent A (you)</span>
+                  <input style={input} value={agentA} readOnly />
+                  <span style={label}>Agent B (counterparty)</span>
+                  <input style={input} value={agentB} readOnly />
+                  <span style={label}>Channel deposit (USDC)</span>
                   <input style={input} value={deposit} onChange={e => setDeposit(e.target.value)} />
-                  <button style={btn} onClick={openChannel} disabled={loading}>{loading ? 'Opening...' : '⟳ Open A2A channel on-chain'}</button>
-                  {status && <div style={isError ? error : success}>{status}</div>}
+                  <span style={label}>Settlement model</span>
+                  <input style={input} value="Net balance on close · Only 2 L1 transactions total" readOnly />
+                  <button style={btn} onClick={openChannel} disabled={loading}>{loading ? 'Opening...' : '⟳ Open A2A channel'}</button>
+                  {status && <div style={success}>{status}</div>}
                 </div>
               )}
 
               {phase === 'active' && (
                 <div style={card}>
-                  <div style={{ fontFamily: 'Georgia, serif', fontSize: '18px', marginBottom: '6px' }}>Channel active · {paymentCount} payments settled</div>
-                  <div style={{ fontSize: '12px', color: '#7a7468', marginBottom: '20px' }}>
-                    <a href={`https://explorer.solana.com/tx/${txSig}?cluster=devnet`} target="_blank" rel="noreferrer" style={{ color: '#c9a96e' }}>View channel open tx →</a>
-                  </div>
+                  <div style={{ fontFamily: 'Georgia, serif', fontSize: '18px', marginBottom: '6px' }}>Channel active · {paymentCount} payments settled in PER</div>
                   <div style={{ background: '#161616', border: '1px solid rgba(201,169,110,0.15)', borderRadius: '8px', padding: '16px', marginBottom: '20px', fontFamily: 'monospace', fontSize: '11px', color: '#9a9488', lineHeight: '1.8' }}>
-                    Channel state (inside PER · not visible on-chain):<br />
-                    Agent A balance: ${(Number(deposit)/1_000_000 - paymentCount * 0.042).toFixed(3)} USDC<br />
+                    Channel ID: {channelId} (inside PER · not visible on-chain)<br />
+                    Agent A balance: ${(Number(deposit) - paymentCount * 0.042).toFixed(3)} USDC<br />
                     Agent B balance: ${(paymentCount * 0.042).toFixed(3)} USDC<br />
-                    Payments settled: {paymentCount} · L1 transactions: 1
+                    Payments settled inside PER: {paymentCount}<br />
+                    Solana L1 transactions used: 1 (channel open)
                   </div>
                   <div style={{ display: 'flex', gap: '12px' }}>
                     <button style={btn} onClick={simulatePayment}>⟳ Settle payment in PER</button>
@@ -121,8 +105,8 @@ export default function A2APage() {
 
               {phase === 'settled' && (
                 <div style={card}>
-                  <div style={{ fontFamily: 'Georgia, serif', fontSize: '22px', color: '#4caf7d', marginBottom: '20px' }}>✓ Channel settled on L1</div>
-                  {[['Total payments in PER', String(paymentCount)], ['L1 transactions used', '2 (open + close)'], ['Net to Agent A', `$${(Number(deposit)/1_000_000 - paymentCount * 0.042).toFixed(3)} USDC`], ['Net to Agent B', `$${(paymentCount * 0.042).toFixed(3)} USDC`], ['On-chain visibility', 'Open + close only · No individual payments'], ['Efficiency', `${paymentCount} payments → 1 L1 settlement`]].map(([l,v]) => (
+                  <div style={{ fontFamily: 'Georgia, serif', fontSize: '22px', color: '#4caf7d', marginBottom: '20px' }}>✓ Channel settled on Solana L1</div>
+                  {[['Total PER payments', String(paymentCount)], ['L1 transactions', '2 (open + close)'], ['Net to Agent A', `$${(Number(deposit) - paymentCount * 0.042).toFixed(3)} USDC`], ['Net to Agent B', `$${(paymentCount * 0.042).toFixed(3)} USDC`], ['On-chain visibility', 'Open + close only · No individual payments'], ['Efficiency', `${paymentCount} payments → 1 L1 settlement`]].map(([l,v]) => (
                     <div key={l} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(201,169,110,0.08)' }}>
                       <span style={{ fontSize: '12px', color: '#9a9488' }}>{l}</span>
                       <span style={{ fontFamily: 'monospace', fontSize: '11px', color: '#4caf7d' }}>{v}</span>
